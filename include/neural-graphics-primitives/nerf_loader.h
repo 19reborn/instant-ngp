@@ -87,6 +87,7 @@ struct NerfDataset {
 	float scale = 1.0f;
 	int aabb_scale = 1;
 	bool from_mitsuba = false;
+	bool from_na = false;
 	bool is_hdr = false;
 	bool wants_importance_sampling = true;
 	bool has_rays = false;
@@ -116,8 +117,11 @@ struct NerfDataset {
 		result.col(1) *= scale_columns ? -scale : -1.f;
 		result.col(2) *= scale_columns ? -scale : -1.f;
 		result.col(3) = result.col(3) * scale + offset;
-
-		if (from_mitsuba) {
+		if (from_na){
+			result.col(1) *= -1;
+			result.col(2) *= -1;
+		}
+		else if (from_mitsuba) {
 			result.col(0) *= -1;
 			result.col(2) *= -1;
 		} else {
@@ -133,7 +137,11 @@ struct NerfDataset {
 
 	Eigen::Matrix<float, 3, 4> ngp_matrix_to_nerf(const Eigen::Matrix<float, 3, 4>& ngp_matrix, bool scale_columns = false) const {
 		Eigen::Matrix<float, 3, 4> result = ngp_matrix;
-		if (from_mitsuba) {
+		if (from_na){
+			result.col(1) *= -1;
+			result.col(2) *= -1;			
+		}
+		else if (from_mitsuba) {
 			result.col(0) *= -1;
 			result.col(2) *= -1;
 		} else {

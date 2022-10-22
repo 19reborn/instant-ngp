@@ -416,6 +416,7 @@ NerfDataset load_nerf(const std::vector<filesystem::path>& jsonpaths, float shar
 	auto progress = tlog::progress(result.n_images);
 
 	result.from_mitsuba = false;
+	result.from_na = false;
 	bool fix_premult = false;
 	bool enable_ray_loading = true;
 	bool enable_depth_loading = true;
@@ -441,6 +442,10 @@ NerfDataset load_nerf(const std::vector<filesystem::path>& jsonpaths, float shar
 
 		if (json.contains("normal_mts_args")) {
 			result.from_mitsuba = true;
+		}
+
+		if (json.contains("from_na")) {
+			result.from_na = true;
 		}
 
 		if (json.contains("fix_premult")) {
@@ -545,7 +550,7 @@ NerfDataset load_nerf(const std::vector<filesystem::path>& jsonpaths, float shar
 			}
 		}
 
-		if (json.contains("frames") && json["frames"].is_array()) pool.parallelForAsync<size_t>(0, json["frames"].size(), [&progress, &n_loaded, &result, &images, &json, basepath, image_idx, info, rolling_shutter, principal_point, lens, part_after_underscore, fix_premult, enable_depth_loading, enable_ray_loading](size_t i) {
+		if (json.contains("frames") && json["frames"].is_array()) pool.parallelForAsync<size_t>(0, json["frames"].size(), [&progress, &n_loaded, &result, &images, &json, basepath, image_idx, info, rolling_shutter, &principal_point, lens, part_after_underscore, fix_premult, enable_depth_loading, enable_ray_loading](size_t i) {
 			size_t i_img = i + image_idx;
 			auto& frame = json["frames"][i];
 			LoadedImageInfo& dst = images[i_img];
@@ -682,7 +687,22 @@ NerfDataset load_nerf(const std::vector<filesystem::path>& jsonpaths, float shar
 			bool got_fl = read_focal_length(json, result.metadata[i_img].focal_length, dst.res);
 			got_fl |= read_focal_length(frame, result.metadata[i_img].focal_length, dst.res);
 			if (!got_fl) {
-				throw std::runtime_error{"Couldn't read fov."};
+				if (frame.contains("intrinsic_matrix")){
+					const auto& intrinsic = frame["intrinsic_matrix"];
+					result.metadata[i_img].focal_length.x() = float(intrinsic[0][0]);
+					//  result.metadata[i_img].focal_length[0] = float(intrinsic[0][0]);
+					 result.metadata[i_img].focal_length.y() = float(intrinsic[1][1]);
+					//  result.metadata[i_img].focal_length[1] = float(intrinsic[1][1]);
+					 // principal_point = Vector2f{intrinsic[0][2],intrinsic[1][2]};
+					 principal_point.x() = float(intrinsic[0][2])/(float)json["w"];
+					//  principal_point.x() = float(intrinsic[0][2]);
+					//  principal_point[0] = float(intrinsic[0][2]);
+					 principal_point.y() = float(intrinsic[1][2])/(float)json["h"];
+					//  principal_point.y() = float(intrinsic[1][2]);
+				}
+				else{
+					throw std::runtime_error{"Couldn't read fov."};				
+				}
 			}
 
 			for (int m = 0; m < 3; ++m) {

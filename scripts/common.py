@@ -267,3 +267,17 @@ def compute_error(metric, img, ref):
 		metric_map = np.mean(metric_map, axis=2)
 	mean = np.mean(metric_map)
 	return mean
+
+def load_image(img):
+
+	if img.shape[2] == 4:
+		img = np.copy(img)
+		# Unmultiply alpha
+		img[...,0:3] = np.divide(img[...,0:3], img[...,3:4], out=np.zeros_like(img[...,0:3]), where=img[...,3:4] != 0)
+		img[...,0:3] = linear_to_srgb(img[...,0:3])
+	else:
+		img = linear_to_srgb(img)
+
+	img = (np.clip(img, 0.0, 1.0) * 255.0 + 0.5).astype(np.uint8)		
+
+	return img
